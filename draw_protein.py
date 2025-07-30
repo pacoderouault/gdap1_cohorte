@@ -20,9 +20,11 @@ MUTATION_FILE = "cohorte_mutations.tsv"
 # MUTATION_FILE = "nguyen_mutations.tsv"
 
 # Liste de chaines à afficher. Vérifier le nom des chaines sur PDB. Par défault A, B, C, D ...
-VISIBLE_CHAINS = ["AAA"]  # Chaines à afficher
+# /!\ Mettre à jour quand on change le model !
+VISIBLE_CHAINS = ["AAA"]
 
-# Domaines à afficher : liste de domaines (nom, start, end, couleur)
+# Domaines à afficher : liste de domaines (nom, start, end, couleur).
+# Laisser une liste vide (DOMAINS = [] ou DOMAINS = None) pour ne pas afficher de domaine.
 DOMAINS = [
     ("GST-N", 24, 105, "limon"),
     ("GST-C", 118, 292, "limon"),
@@ -40,14 +42,16 @@ SHOW_LABELS = False
 MUTATION_AS = "spheresUnique"
 
 # Colorer la surface des mutations. True ou False
-SHOW_SURFACE_MUTATION = False
+SHOW_SURFACE_MUTATION = True
 
 # Transparence de la surface. [0-1] : 0 = opaque. 1 = invisible
 SURFACE_TRANSPARENCY = 0.5
 
-# Couleur de la surface. Les couleurs sont visible dans pymol.
-# Il est possible de renseigner les couleurs au format hexadecimal.
+# Couleur de la surface. Les couleurs sont visibles directement dans pymol.
+# Il est possible de renseigner d'autres couleurs au format hexadecimal (valable pour tous les paramètres couleur !).
 # Par exemple: 0x000000 = noir, 0xffffff = blanc etc.
+# Il est possible d'avoir un colorpicker directement dans google en tapant "colorpicker".
+# Il faudra juste convertir le '#' en '0x'. Exemple : #bbf0c4 => 0xbbf0c4
 SURFACE_COLOR = "white"
 
 # Transparence de la structure cartoon, (hélices, boucles, feuillets). [0-1] : 0 = opaque. 1 = invisible
@@ -67,9 +71,14 @@ MUTATION_SURFACE_TRANSPARENCY = 0.5
 MUTATION_SPHERE_SIZE = 1  # taille des sphères des mutations
 
 # Calculer et afficher les ponts disulfures (inutile ici)
-COMPUTE_DISULFURE_BOUNDS = False
+COMPUTE_DISULFIDE_BOUNDS = False
 
 
+#######################################################
+#                                                     #
+#                        CODE                         #
+#                                                     #
+#######################################################
 def setPretty():
     # Workspace settings
     cmd.bg_color("white")
@@ -218,38 +227,44 @@ def main():
 
     if MUTATION_FILE:
         mutations = parse_mutation_file(MUTATION_FILE)
-        # print(mutations)
 
         for group, muts in mutations.items():
 
-            # créer la sélection de toutes les mutations
+            # créer la sélection de toutes les mutations du groupe
             resi = "resi "
             for mut in muts:
+                # ajout du residu pour la selection de group
                 resi += f"+{mut[1]}"
+
+                # créer un selecteur du residu pour l'affichage
+                mut_selection = f"resi {mut[1]}"
+
+                # représentation individuelle
+                if SHOW_SURFACE_MUTATION:
+                    cmd.set("surface_color", mut[2], mut_selection)
+                    cmd.set(
+                        "transparency", MUTATION_SURFACE_TRANSPARENCY, mut_selection
+                    )
+
+                if MUTATION_AS == "spheres":
+                    cmd.show("spheres", mut_selection)
+                    cmd.set("sphere_scale", MUTATION_SPHERE_SIZE, mut_selection)
+                    cmd.color(mut[2], mut_selection)
+                elif MUTATION_AS == "spheresUnique":
+                    cmd.show("spheres", mut_selection + " and name CA")
+                    cmd.set(
+                        "sphere_scale",
+                        MUTATION_SPHERE_SIZE,
+                        mut_selection + " and name CA",
+                    )
+                    cmd.color(mut[2], mut_selection + " and name CA")
+                elif MUTATION_AS == "sticks":
+                    cmd.show("sticks", mut_selection)
+                    cmd.color(mut[2], mut_selection)
+                elif MUTATION_AS == "ballAndStick":
+                    BallnStick(mut_selection, stick_color=mut[2])
+
             cmd.select(group, f"{resi}")
-
-            if SHOW_SURFACE_MUTATION:
-                # Colorer la surface de ces résidus
-                cmd.set("surface_color", mut[2], group)
-                cmd.set("transparency", MUTATION_SURFACE_TRANSPARENCY, group)
-
-            # Montrer sphères et colorer les atomes mutés
-            # cmd.show("spheres", group + " and name CA")
-            # cmd.set("sphere_scale", 1, group + " and name CA")
-            if MUTATION_AS == "spheres":
-                cmd.show("spheres", group)
-                cmd.set("sphere_scale", MUTATION_SPHERE_SIZE, group)
-                cmd.color(mut[2], group)
-            if MUTATION_AS == "spheresUnique":
-                cmd.show("spheres", group + " and name CA")
-                cmd.set("sphere_scale", MUTATION_SPHERE_SIZE, group + " and name CA")
-                cmd.color(mut[2], group + " and name CA")
-            elif MUTATION_AS == "sticks":
-                cmd.show("sticks", group)
-                cmd.color(mut[2], group)
-            elif MUTATION_AS == "ballAndStick":
-                BallnStick(group, stick_color=mut[2])
-
             if SHOW_LABELS:
                 label = '"%s%s" % (resn, resi)'
                 cmd.label(selection=group + " and name CA", expression=label)
@@ -279,7 +294,7 @@ def main():
             )
             cmd.set("label_placement_offset", (new_x, new_y, new_z), "prot")
 
-    if COMPUTE_DISULFURE_BOUNDS:
+    if COMPUTE_DISULFIDE_BOUNDS:
         show_disulfide_bonds()
 
     cmd.orient("prot")
