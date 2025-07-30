@@ -152,7 +152,7 @@ def main():
             cmd.set("transparency", 0.7)
             cmd.set("cartoon_transparency", 0.0)
             cmd.set("surface_color", "white")
-            cmd.color("bluewhite", f"cartoon and chain {chain}")
+            cmd.color("skyblue", f"cartoon and chain {chain}")
             # color bluewhite, cartoon and chain A
 
     if MUTATION_FILE:
@@ -212,8 +212,9 @@ def main():
             )
             cmd.set("label_placement_offset", (new_x, new_y, new_z), "prot")
 
-    # setPretty()
     show_disulfide_bonds()
+
+    cmd.orient("prot")
 
 
 main()
