@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import List, Tuple
 import numpy as np
 
-MODEL = "/mnt/Data/CHU_services/biochimie_genetique_moleculaire/Recherche/GDAP1/Camille_S/AF-Q8TB36-F1-model_v4.pdb"  # pdb identifier or pdb file path
-# MODEL = "7AIA"  # pdb identifier or pdb file path
-MUTATION_FILE = "/mnt/Data/CHU_services/biochimie_genetique_moleculaire/Recherche/GDAP1/Camille_S/mutations_GDAP1.tsv"  # mutation file, tsv format with 2 required columns (res and pos) and one optional columns for group.
-VISIBLE_CHAINS = ["A"]  # chains to draw
+# MODEL = "AF-Q8TB36-F1-model_v4.pdb"  # pdb identifier or pdb file path
+MODEL = "7AIA"  # pdb identifier or pdb file path
+# MUTATION_FILE = "nguyen_mutations.tsv"  # mutation file, tsv format with 2 required columns (res and pos) and one optional columns for group.
+MUTATION_FILE = "cohorte_mutations.tsv"  # mutation file, tsv format with 2 required columns (res and pos) and one optional columns for group.
+VISIBLE_CHAINS = ["AAA"]  # chains to draw
 SHOW_LABELS = False
 
 
@@ -98,8 +99,10 @@ def main():
             cmd.set("surface_color", mut[2], group)
 
             # Montrer sphères et colorer les atomes mutés
-            cmd.show("spheres", group + " and name CA")
-            cmd.set("sphere_scale", 1, group + " and name CA")
+            # cmd.show("spheres", group + " and name CA")
+            # cmd.set("sphere_scale", 1, group + " and name CA")
+            cmd.show("spheres", group)
+            cmd.set("sphere_scale", 0.6, group)
             cmd.color(mut[2], group)
 
             if SHOW_LABELS:
