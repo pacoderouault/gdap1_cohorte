@@ -1,18 +1,73 @@
 #!/usr/bin/env python
 from pymol import cmd
-import subprocess
-import sys
 from pathlib import Path
-from typing import List, Tuple
 import numpy as np
 
-# MODEL = "AF-Q8TB36-F1-model_v4.pdb"  # pdb identifier or pdb file path
-MODEL = "7AIA"  # pdb identifier or pdb file path
-# MUTATION_FILE = "nguyen_mutations.tsv"  # mutation file, tsv format with 2 required columns (res and pos) and one optional columns for group.
-MUTATION_FILE = "cohorte_mutations.tsv"  # mutation file, tsv format with 2 required columns (res and pos) and one optional columns for group.
-MUTATION_AS = "ballAndStick"  # spheres, stick, ballAndStick
-VISIBLE_CHAINS = ["AAA"]  # chains to draw
+
+#######################################################
+#                                                     #
+#                       INPUTS                        #
+#                                                     #
+#######################################################
+
+# identifiant PDB ou lien vers un fichier pdb
+MODEL = "7AIA"  # molécule GDAP1 nguyen
+# MODEL = "AF-Q8TB36-F1-model_v4.pdb"  # GDAP1 alphafold
+
+# Fichier mutation : 4 colonnes séparées par des tabulations
+# Residu	Position	Group	Couleur
+MUTATION_FILE = "cohorte_mutations.tsv"
+# MUTATION_FILE = "nguyen_mutations.tsv"
+
+# Liste de chaines à afficher. Vérifier le nom des chaines sur PDB. Par défault A, B, C, D ...
+VISIBLE_CHAINS = ["AAA"]  # Chaines à afficher
+
+# Domaines à afficher : liste de domaines (nom, start, end, couleur)
+DOMAINS = [
+    ("GST-N", 24, 105, "limon"),
+    ("GST-C", 118, 292, "limon"),
+]
+
+#######################################################
+#                                                     #
+#                    VISUALISATION                    #
+#                                                     #
+#######################################################
+# Affiche le nom des mutations. True ou False
 SHOW_LABELS = False
+
+# Type de représentation des mutations. Valeurs passible : spheres, spheresUnique, stick, ballAndStick
+MUTATION_AS = "spheresUnique"
+
+# Colorer la surface des mutations. True ou False
+SHOW_SURFACE_MUTATION = False
+
+# Transparence de la surface. [0-1] : 0 = opaque. 1 = invisible
+SURFACE_TRANSPARENCY = 0.5
+
+# Couleur de la surface. Les couleurs sont visible dans pymol.
+# Il est possible de renseigner les couleurs au format hexadecimal.
+# Par exemple: 0x000000 = noir, 0xffffff = blanc etc.
+SURFACE_COLOR = "white"
+
+# Transparence de la structure cartoon, (hélices, boucles, feuillets). [0-1] : 0 = opaque. 1 = invisible
+CARTOON_TRANSPARENCY = 0
+
+# Couleur de la structure cartoon.
+CARTOON_COLOR = "skyblue"
+
+# Transparence de la surface des mutations. [0-1] : 0 = opaque. 1 = invisible]
+# Ca peut être utile pour mettre davantage en evidence les mutation.
+# Par defaut c'est la même transparence que la surface générale.
+MUTATION_SURFACE_TRANSPARENCY = 0.5
+
+# Taille des sphères des mutations. [0-10]
+# Permet d'avoir des sphères plus ou moins grandes pour les mutations.
+# Utile uniquement si MUTATION_AS == spheres ou spheresUnique
+MUTATION_SPHERE_SIZE = 1  # taille des sphères des mutations
+
+# Calculer et afficher les ponts disulfures (inutile ici)
+COMPUTE_DISULFURE_BOUNDS = False
 
 
 def setPretty():
@@ -40,9 +95,9 @@ def BallnStick(arg1, stick_color="marine", sphere_color=None):
     cmd.color("gray85", "elem C and " + arg1)
     cmd.color("gray98", "elem H and " + arg1)
     cmd.color("slate", "elem N and " + arg1)
-    cmd.set("stick_radius", 0.15, arg1)
-    cmd.set("sphere_scale", 0.18, arg1)
-    cmd.set("sphere_scale", 0.13, arg1 + " and elem H")
+    cmd.set("stick_radius", 0.20, arg1)
+    cmd.set("sphere_scale", 0.23, arg1)
+    cmd.set("sphere_scale", 0.18, arg1 + " and elem H")
     if sphere_color:
         cmd.set("sphere_color", sphere_color)
     cmd.set("stick_color", stick_color, arg1)
@@ -149,11 +204,17 @@ def main():
         if chain in VISIBLE_CHAINS:
             cmd.show("cartoon", f"chain {chain}")
             cmd.show("surface", f"chain {chain}")
-            cmd.set("transparency", 0.7)
-            cmd.set("cartoon_transparency", 0.0)
-            cmd.set("surface_color", "white")
-            cmd.color("skyblue", f"cartoon and chain {chain}")
+            cmd.set("transparency", SURFACE_TRANSPARENCY)
+            cmd.set("cartoon_transparency", CARTOON_TRANSPARENCY)
+            cmd.set("surface_color", SURFACE_COLOR)
+            cmd.color(CARTOON_COLOR, f"cartoon and chain {chain}")
             # color bluewhite, cartoon and chain A
+
+    for domain in DOMAINS:
+        selection = f"resi {domain[1]}-{domain[2]}"
+        cmd.select(domain[0], selection)
+        cmd.set("surface_color", domain[3], selection)
+        cmd.color(domain[3], selection)
 
     if MUTATION_FILE:
         mutations = parse_mutation_file(MUTATION_FILE)
@@ -165,18 +226,24 @@ def main():
             resi = "resi "
             for mut in muts:
                 resi += f"+{mut[1]}"
-            cmd.select(group, f"chain {chain} and {resi}")
+            cmd.select(group, f"{resi}")
 
-            # Colorer la surface de ces résidus
-            cmd.set("surface_color", mut[2], group)
+            if SHOW_SURFACE_MUTATION:
+                # Colorer la surface de ces résidus
+                cmd.set("surface_color", mut[2], group)
+                cmd.set("transparency", MUTATION_SURFACE_TRANSPARENCY, group)
 
             # Montrer sphères et colorer les atomes mutés
             # cmd.show("spheres", group + " and name CA")
             # cmd.set("sphere_scale", 1, group + " and name CA")
             if MUTATION_AS == "spheres":
                 cmd.show("spheres", group)
-                cmd.set("sphere_scale", 0.6, group)
+                cmd.set("sphere_scale", MUTATION_SPHERE_SIZE, group)
                 cmd.color(mut[2], group)
+            if MUTATION_AS == "spheresUnique":
+                cmd.show("spheres", group + " and name CA")
+                cmd.set("sphere_scale", MUTATION_SPHERE_SIZE, group + " and name CA")
+                cmd.color(mut[2], group + " and name CA")
             elif MUTATION_AS == "sticks":
                 cmd.show("sticks", group)
                 cmd.color(mut[2], group)
@@ -212,7 +279,8 @@ def main():
             )
             cmd.set("label_placement_offset", (new_x, new_y, new_z), "prot")
 
-    show_disulfide_bonds()
+    if COMPUTE_DISULFURE_BOUNDS:
+        show_disulfide_bonds()
 
     cmd.orient("prot")
 
