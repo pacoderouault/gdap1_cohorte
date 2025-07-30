@@ -10,8 +10,50 @@ import numpy as np
 MODEL = "7AIA"  # pdb identifier or pdb file path
 # MUTATION_FILE = "nguyen_mutations.tsv"  # mutation file, tsv format with 2 required columns (res and pos) and one optional columns for group.
 MUTATION_FILE = "cohorte_mutations.tsv"  # mutation file, tsv format with 2 required columns (res and pos) and one optional columns for group.
+MUTATION_AS = "ballAndStick"  # spheres, stick, ballAndStick
 VISIBLE_CHAINS = ["AAA"]  # chains to draw
 SHOW_LABELS = False
+
+
+def setPretty():
+    # Workspace settings
+    cmd.bg_color("white")
+    cmd.set("ray_opaque_background", "off")
+    cmd.set("orthoscopic", 0)
+    cmd.set("transparency", 0.5)
+    cmd.set("dash_gap", 0)
+    cmd.set("ray_trace_mode", 1)  # normal color + black outline
+    cmd.set("antialias", 3)
+    cmd.set("ambient", 0.5)
+    cmd.set("spec_count", 5)
+    cmd.set("shininess", 50)
+    cmd.set("specular", 1)
+    cmd.set("reflect", 0.1)
+    cmd.space("cmyk")
+    cmd.set("ray_trace_fog", 0)
+    cmd.set("depth_cue", 0)
+
+
+def BallnStick(arg1, stick_color="marine", sphere_color=None):
+    cmd.show("sticks", arg1)
+    cmd.show("spheres", arg1)
+    cmd.color("gray85", "elem C and " + arg1)
+    cmd.color("gray98", "elem H and " + arg1)
+    cmd.color("slate", "elem N and " + arg1)
+    cmd.set("stick_radius", 0.15, arg1)
+    cmd.set("sphere_scale", 0.18, arg1)
+    cmd.set("sphere_scale", 0.13, arg1 + " and elem H")
+    if sphere_color:
+        cmd.set("sphere_color", sphere_color)
+    cmd.set("stick_color", stick_color, arg1)
+    cmd.set("dash_gap", 0.01)
+    cmd.set("dash_radius", 0.035)
+    cmd.hide("nonbonded", arg1)
+    cmd.hide("lines", arg1)
+    cmd.set("valence", 1, arg1)
+    cmd.set("valence_size", 0.2, arg1)
+    cmd.zoom(arg1)
+    cmd.hide("labels")
 
 
 def load_model(model, object_name="prot"):
@@ -62,6 +104,35 @@ def parse_mutation_file(file: Path):
     return mutations
 
 
+def show_disulfide_bonds(selection="all", cutoff=2.2):
+    """
+    Détecte et affiche les ponts disulfure dans la sélection spécifiée.
+    Affiche un bâtonnet pour chaque liaison détectée.
+    """
+    # Sélectionne tous les atomes de soufre des cystéines
+    cmd.select("cys_sg", f"{selection} and resn CYS and name SG")
+    # Récupère les coordonnées de chaque atome SG
+    sg_atoms = cmd.get_model("cys_sg").atom
+
+    count = 0
+    for i, atom1 in enumerate(sg_atoms):
+        for j, atom2 in enumerate(sg_atoms):
+            if j <= i:
+                continue  # évite les doublons
+            dist = (
+                (atom1.coord[0] - atom2.coord[0]) ** 2
+                + (atom1.coord[1] - atom2.coord[1]) ** 2
+                + (atom1.coord[2] - atom2.coord[2]) ** 2
+            ) ** 0.5
+            if dist < cutoff:
+                bond_name = f"ssbond_{count}"
+                cmd.distance(bond_name, f"index {atom1.index}", f"index {atom2.index}")
+                cmd.set("dash_color", "yellow", bond_name)
+                cmd.set("dash_width", 2.5, bond_name)
+                count += 1
+    print(f"{count} ponts disulfure affichés.")
+
+
 def main():
     # Réinitialisation de la scène
     cmd.reinitialize("everything")
@@ -70,14 +141,15 @@ def main():
     # nettoyange des objects
     hide_objects()
 
-    cmd.bg_color("white")
+    setPretty()
+    # cmd.bg_color("white")
 
     # visualisation des chains:
     for chain in cmd.get_chains("prot"):
         if chain in VISIBLE_CHAINS:
             cmd.show("cartoon", f"chain {chain}")
             cmd.show("surface", f"chain {chain}")
-            cmd.set("transparency", 0.5)
+            cmd.set("transparency", 0.7)
             cmd.set("cartoon_transparency", 0.0)
             cmd.set("surface_color", "white")
             cmd.color("bluewhite", f"cartoon and chain {chain}")
@@ -101,9 +173,15 @@ def main():
             # Montrer sphères et colorer les atomes mutés
             # cmd.show("spheres", group + " and name CA")
             # cmd.set("sphere_scale", 1, group + " and name CA")
-            cmd.show("spheres", group)
-            cmd.set("sphere_scale", 0.6, group)
-            cmd.color(mut[2], group)
+            if MUTATION_AS == "spheres":
+                cmd.show("spheres", group)
+                cmd.set("sphere_scale", 0.6, group)
+                cmd.color(mut[2], group)
+            elif MUTATION_AS == "sticks":
+                cmd.show("sticks", group)
+                cmd.color(mut[2], group)
+            elif MUTATION_AS == "ballAndStick":
+                BallnStick(group, stick_color=mut[2])
 
             if SHOW_LABELS:
                 label = '"%s%s" % (resn, resi)'
@@ -133,6 +211,9 @@ def main():
                 xyz_diff[2] / (abs(xyz_diff[0]) + abs(xyz_diff[1]) + abs(xyz_diff[2]))
             )
             cmd.set("label_placement_offset", (new_x, new_y, new_z), "prot")
+
+    # setPretty()
+    show_disulfide_bonds()
 
 
 main()
