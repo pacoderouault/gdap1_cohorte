@@ -39,7 +39,7 @@ def superposer_structures():
 
     # transparence
     cmd.set("cartoon_transparency", 0.3, "af")
-    cmd.set("cartoon_transparency", 0.3, "7ALM")
+    cmd.set("cartoon_transparency", 0.3, "7AIA")
     # cmd.set("cartoon_transparency", 0.3, "7YWD")
 
     # Zoom sur l’ensemble
